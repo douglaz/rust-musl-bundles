@@ -54,9 +54,12 @@ jobs:
             ./scripts/release-standalone-toolchain-tarball.sh "$workdir/rust-toolchain.tar.gz" 1.94.1
             ./scripts/release-offline-project-bundle.sh "$workdir/sample-project" "$workdir/sample-project-offline.tar.gz"
 
-            tar -tzf "$workdir/rust-toolchain.tar.gz" | grep -qE "/README\\.md$"
-            tar -tzf "$workdir/rust-toolchain.tar.gz" | grep -qE "/activate\\.sh$"
-            tar -tzf "$workdir/sample-project-offline.tar.gz" | grep -qE "/build-project\\.sh$"
-            tar -tzf "$workdir/sample-project-offline.tar.gz" | grep -qE "/native-toolchain/"
-            tar -tzf "$workdir/sample-project-offline.tar.gz" | grep -qE "/project/vendor/"
+            tar -tzf "$workdir/rust-toolchain.tar.gz" > "$workdir/rust-toolchain.contents"
+            tar -tzf "$workdir/sample-project-offline.tar.gz" > "$workdir/sample-project-offline.contents"
+
+            grep -qE "/README\\.md$" "$workdir/rust-toolchain.contents"
+            grep -qE "/activate\\.sh$" "$workdir/rust-toolchain.contents"
+            grep -qE "/build-project\\.sh$" "$workdir/sample-project-offline.contents"
+            grep -qE "/native-toolchain/" "$workdir/sample-project-offline.contents"
+            grep -qE "/project/vendor/" "$workdir/sample-project-offline.contents"
           '
