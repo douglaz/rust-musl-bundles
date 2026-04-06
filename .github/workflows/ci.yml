@@ -1,0 +1,62 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Show flake outputs
+        run: nix flake show --all-systems --no-write-lock-file .
+
+      - name: Verify isolated dev shell
+        run: |
+          nix develop .#isolated -c bash -lc '
+            set -euo pipefail
+            rustc --version
+            cargo --version
+          '
+
+      - name: Build standalone and offline bundle smoke artifacts
+        run: |
+          nix develop .#isolated -c bash -lc '
+            set -euo pipefail
+
+            workdir="$(mktemp -d)"
+            trap "rm -rf \"$workdir\"" EXIT
+
+            cargo new --vcs none --bin "$workdir/sample-project"
+            printf "\nanyhow = \"1\"\n" >> "$workdir/sample-project/Cargo.toml"
+            cargo generate-lockfile --manifest-path "$workdir/sample-project/Cargo.toml"
+
+            ./scripts/release-standalone-toolchain-tarball.sh "$workdir/rust-toolchain.tar.gz" 1.94.1
+            ./scripts/release-offline-project-bundle.sh "$workdir/sample-project" "$workdir/sample-project-offline.tar.gz"
+
+            tar -tzf "$workdir/rust-toolchain.tar.gz" | grep -qE "/README\\.md$"
+            tar -tzf "$workdir/rust-toolchain.tar.gz" | grep -qE "/activate\\.sh$"
+            tar -tzf "$workdir/sample-project-offline.tar.gz" | grep -qE "/build-project\\.sh$"
+            tar -tzf "$workdir/sample-project-offline.tar.gz" | grep -qE "/native-toolchain/"
+            tar -tzf "$workdir/sample-project-offline.tar.gz" | grep -qE "/project/vendor/"
+          '
