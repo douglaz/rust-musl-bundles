@@ -47,6 +47,53 @@
         cargoStatic = pkgsStatic.pkgsStatic.cargo;
 
         muslLinker = "${pkgs.pkgsStatic.stdenv.cc}/bin/${pkgs.pkgsStatic.stdenv.cc.targetPrefix}cc";
+
+        mkIsolatedScriptApp = scriptName:
+          flake-utils.lib.mkApp {
+            drv = pkgs.writeShellApplication {
+              name = scriptName;
+              runtimeInputs = [ pkgs.nix ];
+              text = ''
+                repo_root="$PWD"
+                if [ ! -x "$repo_root/scripts/${scriptName}.sh" ]; then
+                  repo_root="${self.outPath}"
+                fi
+                exec ${pkgs.nix}/bin/nix develop "$repo_root#isolated" -c "$repo_root/scripts/${scriptName}.sh" "$@"
+              '';
+            };
+          };
+
+        cleanApp = flake-utils.lib.mkApp {
+          drv = pkgs.writeShellApplication {
+            name = "clean";
+            runtimeInputs = with pkgs; [ coreutils findutils ];
+            text = ''
+              repo_root="$PWD"
+              if [ ! -x "$repo_root/scripts/clean.sh" ]; then
+                repo_root="${self.outPath}"
+              fi
+              exec "$repo_root/scripts/clean.sh" "$@"
+            '';
+          };
+        };
+
+        defaultApp = flake-utils.lib.mkApp {
+          drv = pkgs.writeShellApplication {
+            name = "rust-musl-bundles";
+            text = ''
+              printf '%s\n' \
+                'rust-musl-bundles nix apps:' \
+                '  nix run .#build-standalone-toolchain-dir -- <output-dir> [version] [target]' \
+                '  nix run .#release-standalone-toolchain-tarball -- <output-tarball> [version] [target]' \
+                '  nix run .#release-offline-project-bundle -- <project-dir> [output-tar.gz]' \
+                '  nix run .#test-isolated-project-build -- <project-dir> [cargo-build-args...]' \
+                '  nix run .#clean' \
+                "" \
+                'Interactive entrypoint:' \
+                '  nix develop .#isolated'
+            '';
+          };
+        };
       in
       {
         devShells.default = pkgs.mkShell {
@@ -103,6 +150,15 @@
           { name = "rust-lang-rust"; path = rust-repo; }
           { name = "rust-lang-cargo"; path = cargo-repo; }
         ];
+
+        apps = {
+          default = defaultApp;
+          clean = cleanApp;
+          "build-standalone-toolchain-dir" = mkIsolatedScriptApp "build-standalone-toolchain-dir";
+          "release-standalone-toolchain-tarball" = mkIsolatedScriptApp "release-standalone-toolchain-tarball";
+          "release-offline-project-bundle" = mkIsolatedScriptApp "release-offline-project-bundle";
+          "test-isolated-project-build" = mkIsolatedScriptApp "test-isolated-project-build";
+        };
 
       }
     );

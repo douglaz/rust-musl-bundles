@@ -32,6 +32,23 @@ rustc --version
 cargo --version
 ```
 
+If you prefer one-shot commands instead of entering a shell, `nix run .` now
+prints the available helper apps:
+
+```bash
+nix run .
+```
+
+Available entrypoints:
+
+```bash
+nix run .#build-standalone-toolchain-dir -- ./rust-toolchain 1.94.1
+nix run .#release-standalone-toolchain-tarball -- rust-toolchain-1.94.1-x86_64-unknown-linux-musl.tar.gz 1.94.1
+nix run .#release-offline-project-bundle -- /path/to/my-project
+nix run .#test-isolated-project-build -- /path/to/my-project --release
+nix run .#clean
+```
+
 ## Build a Nix-free self-contained directory
 
 If your sandbox or VM has no Nix at all, use:
